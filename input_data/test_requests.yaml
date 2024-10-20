@@ -1,0 +1,58 @@
+defaults:
+  request:
+    truststore: null
+    keystore: null
+    proxy: null
+    url_template: "https://{datacenter}.{env}.cloud{path}"
+    method: "GET"
+    headers:
+      Accept: "application/json"
+  expected_response:
+    status_code: 200
+    headers:
+      Content-Type: "application/json"
+    error: false
+
+comms:
+  - request:
+      name: "Get User Data"
+      url: "https://dymkj.wiremockapi.cloud/json/1"
+      method: "GET"
+      headers:
+        Authorization: "Bearer $token"
+    expected_response:
+      status_code:
+        - equals: 200
+        - in_range: 200:299
+      headers:
+        - includes:
+            Content-Type: "application/json"
+      body:
+        - equals:
+            id: 1
+            value: "things"
+#        - contains:
+#          - "id"
+#          - "value"
+#        error: false
+
+#  - request:
+#      name: "Create New Post"
+#      url_values:
+#        datacenter: "dymkj"
+#        env: "wiremockapi"
+#        path: "/posts"
+#      method: "POST"
+#      payload:
+#        title: "New Post"
+#        content: "This is a new post"
+#      headers:
+#        Content-Type: "application/json"
+#        Authorization: "Bearer $token"
+#    expected_response:
+#      status_code: 201
+#      body_contains:
+#        - "id"
+#        - "title"
+#        - "content"
+#      error: false
