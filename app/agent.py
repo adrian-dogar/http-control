@@ -1,39 +1,39 @@
-# import re
+import re
 import requests
 import json
 import yaml
-import logging
 import sys
 import traceback
-from request import Request
 
 from logger import setup_logger
+logger = setup_logger(__name__)
 
+# Singleton class
 class Agent():
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Agent, cls).__new__(cls)
+        return cls._instance
+
     def __init__(self):
-        self.logger = setup_logger(__name__)
+        pass
 
-    def evaluate_response(self, response, expected):
-        self.logger.info("Evaluating response")
-        for prop in expected.keys():
-            self.logger.info(f"Evaluating response property {prop}")
-            for test in expected[prop]:
-                self.logger.info(f"Evaluating response property test {test}")
-                check = list(test.keys())[0]
-                message = self.prepare_and_assert(prop, check, test[check], response[prop])
-
-    def get_requests(self):
-        try:
-            with open('../input_data/test_requests.yaml', 'r', encoding='utf-8') as f:
-                self.collection = yaml.safe_load(f)
-        except Exception as e:
-            self.logger.error(f"Error loading requests: {str(e)}")
-            return
-
-        return requests
+    def evaluate_response(self, request):
+        logger.info("Evaluating response")
+        expected = request.expected
+        response = request.response
+        result = []
+        for propiedad in expected.keys():
+            logger.info(f"Evaluating response property {propiedad}")
+            for test in expected[propiedad]:
+                logger.info(f"Evaluating response property test {test}")
+                check = list(test.keys()).pop(0)
+                result.append(self.prepare_and_assert(propiedad, check, test[check], response[propiedad]))
 
     def prepare_request(self, custom, defaults=None):
-        self.logger.info(f"Preparing request [{custom['name'] if 'name' in custom else 'unnamed'}]")
+        logger.info(f"Preparing request [{custom['name'] if 'name' in custom else 'unnamed'}]")
 
         request = {
             'method': custom.get('method', defaults.get('method', 'GET')),
@@ -51,13 +51,13 @@ class Agent():
         elif 'url' in defaults:
             request['url'] = defaults['url']
         else:
-            self.logger.error("No URL provided for request")
+            logger.error("No URL provided for request")
             return
 
         return request
 
     def prepare_response(self, response):
-        self.logger.debug(f"Preparing response")
+        logger.debug(f"Preparing response")
         if type(response) == requests.Response:
             result = {
                 'status_code': response.status_code,
@@ -74,7 +74,7 @@ class Agent():
             return result
 
     def assert_and_go(self, condition, message=None):
-        self.logger.debug(f"Asserting: {message}")
+        logger.debug(f"Asserting: {message}")
         try:
             assert condition, message
 
@@ -88,14 +88,14 @@ class Agent():
             if message:
                 details += f"Message: {message}\n"
 
-            self.logger.error(f"Assertion failed: {message}")
+            logger.error(f"Assertion failed: {message}")
             return {
                 "status": False,
                 "message": f"Assertion failed: {message}",
                 "details": details
             }
 
-        self.logger.info(f"Assertion passed: {message}")
+        logger.info(f"Assertion passed: {message}")
         return {
             "status": True,
             "message": f"Assertion passed: {message}",
@@ -103,12 +103,26 @@ class Agent():
         }
 
     def prepare_and_assert(self, prop, test, expected_value, current_value):
-        self.logger.debug(
+        logger.debug(
             f"Preparing and asserting {prop}, for {test} test, with expected value {expected_value} and current value {current_value}")
+
         if test == 'contains':
             result = self.assert_and_go(
                 condition=expected_value in current_value,
                 message=f"Expected {prop} to contain {expected_value}, but it doesn't"
+            )
+            return result
+
+        elif test == 'includes':
+            if type(expected_value) == dict:
+                condition = all(item in current_value.items() for item in expected_value.items())
+                message = f"Expected {prop} to include {expected_value}, but it doesn't"
+            else:
+                condition = expected_value in current_value
+                message = f"Expected {prop} to include {expected_value}, but it doesn't"
+            result = self.assert_and_go(
+                condition=condition,
+                message=message
             )
             return result
 
@@ -133,48 +147,56 @@ class Agent():
                 message=f"Expected {prop} to be greater than {expected_value}, got {current_value}"
             )
             return result
+
         elif test == 'lower':
             result = self.assert_and_go(
                 condition=current_value < expected_value,
                 message=f"Expected {prop} to be lower than {expected_value}, got {current_value}"
             )
             return result
+
         elif test == 'exists':
             result = self.assert_and_go(
                 condition=current_value is not None,
                 message=f"Expected {prop} to exist, but it doesn't"
             )
             return result
+
         elif test == 'not_exists':
             result = self.assert_and_go(
                 condition=current_value is None,
                 message=f"Expected {prop} to not exist, but it does"
             )
             return result
+
         elif test == 'type':
             result = self.assert_and_go(
                 condition=type(current_value) == expected_value,
                 message=f"Expected {prop} to be of type {expected_value}, got {type(current_value)}"
             )
             return result
+
         elif test == 'length':
             result = self.assert_and_go(
                 condition=len(current_value) == expected_value,
                 message=f"Expected {prop} to have length {expected_value}, got {len(current_value)}"
             )
             return result
+
         elif test == 'empty':
             result = self.assert_and_go(
                 condition=len(current_value) == 0,
                 message=f"Expected {prop} to be empty, but it isn't"
             )
             return result
+
         elif test == 'not_empty':
             result = self.assert_and_go(
                 condition=len(current_value) > 0,
                 message=f"Expected {prop} to not be empty, but it is"
             )
             return result
+
         elif test == "in_range":
             window = sorted(expected_value.split(":"))
 
@@ -183,5 +205,13 @@ class Agent():
                 message=f"Expected {prop} to be in range {expected_value}, got {current_value}"
             )
             return result
+
+        elif test == "matches":
+            result = self.assert_and_go(
+                condition=re.fullmatch(expected_value, current_value),
+                message=f"Expected {prop} to match {expected_value}, got {current_value}"
+            )
+            return result
+
         else:
             return False, f"Unknown test type: {test}"

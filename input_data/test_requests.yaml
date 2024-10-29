@@ -1,9 +1,9 @@
 defaults:
   request:
-    truststore: null
+    truststore: false
     keystore: null
     proxy: null
-    url_template: "https://{locale}.{project}{env}.wiremockapi.cloud{path}"
+    url_template: "https://{locale}-{project}{env}.wiremockapi.cloud{path}"
     method: "GET"
     headers:
       Accept: "application/json"
@@ -45,23 +45,28 @@ requests:
       url_values:
         locale:
           - "us"
-          - "uk"
+          - "eu"
         project:
           - "coffeeshop"
         env:
-          - "-stage"
+          - "-test"
           - ""
-        path: "/grind"
+        path: "/grind?qty=2&size=1"
       method: "GET"
       payload: None
       headers:
         Authorization: "Bearer $token"
-    expected_response:
-      status_code: 201
-      body_contains:
-        - "id"
-        - "title"
-        - "content"
+    expected:
+      status_code:
+        - equals: 201
+      body:
+        - includes:
+          - "status"
+          - "size"
+          - "qty"
+      headers:
+        - includes:
+            Content-Type: "application/json"
       error: false
 
 #  - name: "Create New Post"

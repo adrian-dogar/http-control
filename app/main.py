@@ -2,10 +2,9 @@ import json
 import argparse
 from configobj import Config
 from agent import Agent
-from app.collection import Collection
-from request import Request
-
+from collection import Collection
 from logger import setup_logger
+from request import Request
 
 def main():
     logger = setup_logger(__name__)
@@ -18,10 +17,10 @@ def main():
     # Load configuration files
     collection_file = Config(args.collection).items()
     logger.debug(f"Configuration file loaded: {args.collection}")
-    logger.debug(f"Configuration: {json.dumps(collection_file, indent=2)}")
+    # logger.debug(f"Configuration: {json.dumps(collection_file, indent=2)}")
 
     # Run the control operator
-    logger.info("Running the control operator")
+    logger.info("Setting up the agent")
     agent = Agent()
 
     collection = Collection(collection_file)
@@ -31,13 +30,14 @@ def main():
         logger.error("No requests found")
         return
 
-    for request in collection.requests:
-        response = request.invoke()
-        logger.debug(json.dumps(response.json()))
+    logger.warning(f"Collection: {collection.requests}")
 
-        if response:
-            response = agent.prepare_response(response)
-            agent.evaluate_response(response, request['expected_response'])
+    for counter, (index, request) in enumerate(collection.requests.items()):
+        request.invoke()
+        logger.debug(f"Response message: {request.response['body']}")
+
+        if request.response['body']:
+            agent.evaluate_response(request)
 
 
 if __name__ == "__main__":
