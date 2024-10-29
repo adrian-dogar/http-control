@@ -1,0 +1,29 @@
+{
+  "envs": {
+    "development": {
+      "env_url": ".dev",
+      "truststore": "truststore.jks",
+      "keystore": "keystore.jks"
+    },
+    "qa": {
+      "env_url": ".qa",
+      "truststore": "truststore.jks",
+      "keystore": "keystore.jks"
+    },
+    "production": {
+      "env_url": "",
+      "truststore": "truststore.jks",
+      "keystore": "keystore.jks"
+    }
+  },
+  "datacenters": {
+    "us": {
+      "datacenter_url": "us",
+      "proxy": "https://{$env.proxyuaer}:{$env.proxypass}@us.proxy.com:8080"
+    },
+    "eu": {
+      "datacenter_url": "eu",
+      "proxy": "https://{$env.proxyuaer}:{$env.proxypass}@eu.proxy.com:8080"
+    }
+  }
+}

@@ -36,7 +36,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture
 def variables(request):
-    return json.loads(request.config.getoption("--variables"))
+    return json.loads(request.equests_config.getoption("--variables"))
 
 
 @pytest.fixture

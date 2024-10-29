@@ -1,4 +1,4 @@
-# from configobj.config import Config
+from configobj import Config
 import re
 
 import requests
@@ -49,20 +49,6 @@ def prepare(custom, defaults=None):
 
     return request
 
-# Example usage:
-# def test_function():
-#     x = 5
-#     y = 10
-#
-#     assert_and_go(x < y, "x should be smaller than y")
-#     assert_and_go(x > y, "x should be greater than y")
-#     assert_and_go(isinstance(x, str), "x should be a string")
-#
-#     print("This will be executed even if assertions fail")
-#
-#
-# test_function()
-
 def prepare_response(response):
     logger.debug(f"Preparing response")
     if type(response) == requests.Response:
@@ -101,9 +87,6 @@ def assert_and_go(condition, message=None):
             "message": f"Assertion failed: {message}",
             "details": details
         }
-
-        # You can choose to re-raise the exception, return False, or handle it in any other way
-        # For example, to continue execution:
 
     logger.info(f"Assertion passed: {message}")
     return {
@@ -195,28 +178,18 @@ def prepare_and_assert(prop, test, expected_value, current_value):
     else:
         return False, f"Unknown test type: {test}"
 
-
 def evaluate_response(response, expected):
     logger.info("Evaluating response")
     for prop in expected.keys():
         logger.info(f"Evaluating response property {prop}")
         for test in expected[prop]:
             logger.info(f"Evaluating response property test {test}")
-            # print(f"test: {test}")
-            # print(list(test.keys())[0])
-            # print(test[list(test.keys())[0]])
-            # if isinstance(test[list(test.keys())[0]], dict):
-            #     check = list(test.keys())[0]
-            #     # check = test[list(test.keys())[0]]
-            # else:
-            #     check = list(test.keys())[0]
             check = list(test.keys())[0]
-            # print(check)
             message = prepare_and_assert(prop, check, test[check], response[prop])
 
 def main():
-    # config_parser = Config("config.json", env_file=".env")
-    # config = config_parser.items()
+    config_parser = Config("constants.json", env_file=".env")
+    constants = config_parser.items()
 
     requests_list = read_requests()
 

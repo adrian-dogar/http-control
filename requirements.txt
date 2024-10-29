@@ -1,0 +1,14 @@
+ard-config-object @ git+https://github.com/adi-do/ard_config_object.git@dafdafa30037298c05d412fe5e897de60a1812be
+certifi==2024.8.30
+charset-normalizer==3.4.0
+exceptiongroup==1.2.2
+idna==3.10
+iniconfig==2.0.0
+packaging==24.1
+pluggy==1.5.0
+pytest==8.3.3
+python-dotenv==1.0.1
+PyYAML==6.0.2
+requests==2.32.3
+tomli==2.0.2
+urllib3==2.2.3
