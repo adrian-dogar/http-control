@@ -1,8 +1,9 @@
-import json
 import itertools
 import random
 import string
 from request import Request
+from urllib.parse import urlparse
+
 from logger import setup_logger
 logger = setup_logger(__name__)
 
@@ -24,7 +25,7 @@ class Collection:
 
     def __init__(self, data=None):
         logger.info("Initializing Collection")
-        self.id_counter = 0
+        self.id_counter = 1
         self.requests = {}
         self.tags = []
         self.groups = []
@@ -48,6 +49,7 @@ class Collection:
             self.groups.extend(groups)
 
         # Use the id_counter as the unique key
+        request.id = self.id_counter
         self.requests[self.id_counter] = request
         self.id_counter += 1  # Increment the counter
 
@@ -66,34 +68,35 @@ class Collection:
                 atomized_collection.append(request)
         return atomized_collection
 
-    def parse_requests_in(self, object):
+    def parse_requests_in(self, data):
         """
         Read, interpret and return the requests list
         :return:
         """
         logger.info("Loading requests list...")
-        defaults = object.get('defaults', {})
-        requests_list = object.get('requests', [])
+        defaults = data.get('defaults', {}).get('request', {})
+        requests_list = data.get('requests', [])
 
         for item in requests_list:
-            logger.info(f"Gathering attributes for request [{item.get('name')}] - ({self.id_counter})")
+            logger.info(f"Instantiating the requests for [{item.get('name')}] suite - ({self.id_counter})")
+            invoke = item.get('invoke', {})
             attributes = {
-                'method': item['invoke'].get('method', defaults.get('method', 'GET')),
-                'truststore': item['invoke'].get('truststore', defaults.get('truststore')),
-                'keystore': item['invoke'].get('keystore', defaults.get('keystore', [])),
-                'proxy': item['invoke'].get('proxy', defaults.get('proxy', {})),
-                'headers': item['invoke'].get('headers', defaults.get('headers', {})),
-                'payload': item['invoke'].get('payload', defaults.get('payload', None)),
+                'method': invoke.get('method', defaults.get('method', 'GET')),
+                'truststore': invoke.get('truststore', defaults.get('truststore')),
+                'keystore': invoke.get('keystore', defaults.get('keystore', [])),
+                'headers': {**defaults.get('headers', {}), **invoke.get('headers', {})},
+                'payload': invoke.get('payload', defaults.get('payload', None)),
                 'name': item.get('name', ''),
                 'summary': item.get('summary', ''),
                 'tags': item.get('tags', []),
                 'groups': item.get('groups', []),
                 'suite': slugify(item.get('name', rand(7))),
-                'expected' : item.get('expected', {})
+                'expected' : item.get('expect', {}),
+                'timeout': item.get('timeout', defaults.get('timeout', 10)),
             }
 
-            if 'url' in item['invoke']:
-                attributes['url'] = item['invoke']['url']
+            if 'url' in invoke:
+                attributes['url'] = invoke['url']
                 request = Request(attributes)
                 self.append(request)
 
@@ -102,9 +105,8 @@ class Collection:
                 request = Request(attributes)
                 self.append(request)
 
-            elif 'url_values' in item['invoke'] and 'url_template' in defaults['request']:
-                # Use itertools to iterate over the url_values and build all options
-                processed_dict = {k: [v] if isinstance(v, str) else v for k, v in item['invoke']['url_values'].items()}
+            elif 'url_values' in invoke and 'url_template' in defaults:
+                processed_dict = {k: [v] if isinstance(v, str) else v for k, v in invoke['url_values'].items()}
                 keys = processed_dict.keys()
                 value_lists = processed_dict.values()
                 combinations = list(itertools.product(*value_lists))
@@ -112,8 +114,8 @@ class Collection:
                 logger.debug(f"All options are: {all_options}")
 
                 for option in all_options:
-                    logger.info(f"Creating new request for the [{attributes['suite']}] suite - ({self.id_counter})")
-                    attributes['url'] = defaults['request']['url_template'].format(**option)
+                    logger.debug(f"Creating new request for the <{attributes['suite']}> suite - ({self.id_counter})")
+                    attributes['url'] = defaults['url_template'].format(**option)
                     logger.debug(f"Attributes for current option are: {attributes}")
                     request = Request(attributes)
                     self.append(request)
@@ -122,7 +124,33 @@ class Collection:
                 logger.error("No URL provided for request")
                 return []
 
-    def add_response(self, index, response):
-        self.requests[index].response = response
+            hostname = urlparse(attributes['url']).hostname
+            attributes['bypass_proxy'] = False
+            for substring in data.get('defaults', {}).get('bypass_proxy', {}):
+                if f"{substring}" in hostname:
+                    attributes['bypass_proxy'] = True
+                    break
+            if attributes['bypass_proxy']:
+                attributes['proxy'] = invoke.get('proxy', defaults.get('proxy', {}))
 
+    def build_report(self):
+        logger.info("Building report...")
 
+        total_requests = len(self.requests)
+        logger.info(f"    > Total requests: {total_requests}")
+
+        total_assertions = sum([len(request.expected) for request in self.requests.values()])
+        logger.info(f"    > Total assertions: {total_assertions}")
+
+        total_failed_assertions = sum(len([assertion for assertion in request.assertions if assertion['status'] == False]) for request in self.requests.values())
+        logger.info(f"    > Total failed assertions: {total_failed_assertions}")
+
+        total_passed_assertions = sum(len([assertion for assertion in request.assertions if assertion['status'] == True]) for request in self.requests.values())
+        logger.info(f"    > Total passed assertions: {total_passed_assertions}")
+
+        requests_for_review = {request.id: request.name for request in self.requests.values() if len([assertion for assertion in request.assertions if assertion['status'] == False]) > 0}
+        logger.info(f"    > Requests with failed assertions:")
+        for request_id, value in requests_for_review.items():
+            logger.info(f"        >> ({request_id}): {value}")
+
+        logger.info("Report built successfully!")

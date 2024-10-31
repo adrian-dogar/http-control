@@ -1,13 +1,20 @@
 defaults:
+  oauth2:
+    my_provider:
+      client_id: ${my_provider_client_id}
+      client_secret: ${my_provider_client_secret}
+      token_url: "https://fake-idp.wiremockapi.cloud/token"
+      grant_type: "client_credentials"
+      scope: ${my_provider_scope}
   request:
     truststore: false
-    keystore: null
+    keystore: []
     proxy: null
     url_template: "https://{locale}-{project}{env}.wiremockapi.cloud{path}"
     method: "GET"
     headers:
       Accept: "application/json"
-  expected_response:
+  expect:
     status_code: 200
     headers:
       Content-Type: "application/json"
@@ -55,19 +62,15 @@ requests:
       method: "GET"
       payload: None
       headers:
-        Authorization: "Bearer $token"
-    expected:
+        Authorization: "$bearer"
+    expect:
       status_code:
-        - equals: 201
+        - equals: 200
       body:
-        - includes:
-          - "status"
-          - "size"
-          - "qty"
+        - exists: true
       headers:
         - includes:
             Content-Type: "application/json"
-      error: false
 
 #  - name: "Create New Post"
 #    invoke:

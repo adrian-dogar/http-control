@@ -21,7 +21,7 @@ class ColoredFormatter(logging.Formatter):
         log_message = super().format(record)
         return f"{color}{log_message}{self.COLORS['RESET']}"
 
-def setup_logger(name='project_logger', level=logging.DEBUG):
+def setup_logger(name='project_logger', level=logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(level)
 

@@ -1,14 +1,20 @@
 import requests
 import json
 from urllib.parse import urlparse, parse_qs, urlencode
+import urllib3
+import globals
 from logger import setup_logger
 logger = setup_logger(__name__)
 
+# TODO: should I leave it here?????
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class Request:
     def __init__(self, attributes, variables=None):
-        logger.info("Initializing Request")
+        logger.debug("Initializing Request")
 
+
+        self.id = None
         self.name = ''
         self.summary = ''
         self.suite = None
@@ -24,6 +30,8 @@ class Request:
         self.proxies = {}
         self.expected = {}
         self.response = {}
+        self.timeout = 10
+        self.assertions = []
 
         # Fpr all items in the attributes dictionary, set the value of the item to the value of the key, except for the url, and payload
         for key, value in attributes.items():
@@ -35,7 +43,12 @@ class Request:
         self.url = self.replace_variables(attributes['url'], variables)
         self.verify = attributes.get('truststore', False)
         self.cert = attributes.get('keystore', [])
-        self.proxies = attributes.get('proxy', {})
+        self.proxies = attributes.get('proxy', None)
+
+        # TODO: improve the usage with multiple ID providers, the token manager lib and the config yaml contents
+        if ('authorization' in {k.lower() for k in attributes.keys()}
+                and self.headers.get('Authorization').lower() == '$bearer'):
+            self.headers['Authorization'] = f"Bearer {globals.token}"
 
         # Either "json" or "data" can be used, but not both
         if 'payload' in attributes and attributes['payload']:
@@ -70,19 +83,19 @@ class Request:
             outcome = {
                 "body": response_body,
                 "headers": response.headers,
-                "status_code": response.status_code
+                "status_code": response.status_code,
+                "error": ""
             }
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed: {str(e)}")
             outcome = {
-                "body": None,
-                "headers": None,
-                "status_code": None,
+                "body": "",
+                "headers": {},
+                "status_code": "",
                 "error": str(e)
             }
 
         self.response = outcome
-
 
     def replace_variables(self, url, variables):
         if not variables:

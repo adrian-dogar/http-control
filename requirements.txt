@@ -1,9 +1,10 @@
-ard-config-object @ git+https://github.com/adi-do/ard_config_object.git@dafdafa30037298c05d412fe5e897de60a1812be
+ard-config-object @ git+https://github.com/adrian-dogar/ard_config_object.git@92feb55b728a4d0282f8ca41919e5b0edb759ceb
 certifi==2024.8.30
 charset-normalizer==3.4.0
 exceptiongroup==1.2.2
 idna==3.10
 iniconfig==2.0.0
+light-token-manager @ git+https://github.com/adrian-dogar/light-token-manager@57c0c9690e3e1528573dd5455b7eaf10c2cffce4
 packaging==24.1
 pluggy==1.5.0
 pytest==8.3.3

@@ -1,7 +1,5 @@
 import re
-import requests
 import json
-import yaml
 import sys
 import traceback
 
@@ -21,57 +19,15 @@ class Agent():
         pass
 
     def evaluate_response(self, request):
-        logger.info("Evaluating response")
         expected = request.expected
         response = request.response
         result = []
         for propiedad in expected.keys():
-            logger.info(f"Evaluating response property {propiedad}")
             for test in expected[propiedad]:
-                logger.info(f"Evaluating response property test {test}")
+                logger.debug(f"Evaluating <{propiedad}> response property on <{test}> condition")
                 check = list(test.keys()).pop(0)
                 result.append(self.prepare_and_assert(propiedad, check, test[check], response[propiedad]))
-
-    def prepare_request(self, custom, defaults=None):
-        logger.info(f"Preparing request [{custom['name'] if 'name' in custom else 'unnamed'}]")
-
-        request = {
-            'method': custom.get('method', defaults.get('method', 'GET')),
-            'truststore': custom.get('truststore', defaults.get('truststore')),
-            'keystore': custom.get('keystore', defaults.get('keystore', False)),
-            'proxy': custom.get('proxy', defaults.get('proxy', None)),
-            'headers': custom.get('headers', defaults.get('headers', {})),
-            'payload': custom.get('payload', defaults.get('payload', None)),
-        }
-
-        if 'url' in custom:
-            request['url'] = custom['url']
-        elif 'url_values' in custom and 'url_template' in defaults:
-            request['url'] = defaults['url_template'].format(**custom['url_values'])
-        elif 'url' in defaults:
-            request['url'] = defaults['url']
-        else:
-            logger.error("No URL provided for request")
-            return
-
-        return request
-
-    def prepare_response(self, response):
-        logger.debug(f"Preparing response")
-        if type(response) == requests.Response:
-            result = {
-                'status_code': response.status_code,
-                'headers': response.headers,
-            }
-
-            if response.headers['Content-Type'] == 'application/json':
-                result['body'] = response.json()
-            elif response.headers['Content-Type'] == 'application/xml':
-                result['body'] = response.text
-            else:
-                result['body'] = response.text
-
-            return result
+        return result
 
     def assert_and_go(self, condition, message=None):
         logger.debug(f"Asserting: {message}")
@@ -104,22 +60,27 @@ class Agent():
 
     def prepare_and_assert(self, prop, test, expected_value, current_value):
         logger.debug(
-            f"Preparing and asserting {prop}, for {test} test, with expected value {expected_value} and current value {current_value}")
+            f"Preparing and asserting <{prop}>, for <{test}> test, with expected value <{expected_value}> and current value <{current_value}>")
 
         if test == 'contains':
             result = self.assert_and_go(
                 condition=expected_value in current_value,
-                message=f"Expected {prop} to contain {expected_value}, but it doesn't"
+                message=f"Expected <{prop}> to contain <{expected_value}>, got <{current_value}>"
             )
             return result
 
         elif test == 'includes':
-            if type(expected_value) == dict:
-                condition = all(item in current_value.items() for item in expected_value.items())
-                message = f"Expected {prop} to include {expected_value}, but it doesn't"
-            else:
-                condition = expected_value in current_value
-                message = f"Expected {prop} to include {expected_value}, but it doesn't"
+            try:
+                if type(expected_value) == dict:
+                    condition = all(item in current_value.items() for item in expected_value.items())
+                    message = f"Expected <{prop}> to include <{expected_value}>, got <{current_value}>"
+                else:
+                    condition = expected_value in current_value
+                    message = f"Expected <{prop}> to include <{expected_value}>, got <{current_value}>"
+            except AttributeError or TypeError:
+                condition = False
+                message = f"Expected <{prop}> to include <{expected_value}>, got <{current_value}>"
+
             result = self.assert_and_go(
                 condition=condition,
                 message=message
@@ -131,10 +92,10 @@ class Agent():
                 norm_expected = re.sub(r'[\n\r\t\s]+', '', json.dumps(expected_value, sort_keys=True))
                 norm_current = re.sub(r'[\n\r\t\s]+', '', json.loads(json.dumps(current_value, sort_keys=True)))
                 condition = norm_expected == norm_current
-                message = f"Expected {prop} to be {norm_expected}, got {norm_current}"
+                message = f"Expected <{prop}> to be {norm_expected}, got {norm_current}"
             else:
                 condition = expected_value == current_value
-                message = f"Expected {prop} to be {expected_value}, got {current_value}"
+                message = f"Expected <{prop}> to be <{expected_value}>, got <{current_value}>"
             result = self.assert_and_go(
                 condition=condition,
                 message=message
@@ -144,72 +105,77 @@ class Agent():
         elif test == 'greater':
             result = self.assert_and_go(
                 condition=current_value > expected_value,
-                message=f"Expected {prop} to be greater than {expected_value}, got {current_value}"
+                message=f"Expected <{prop}> to be greater than <{expected_value}>, got <{current_value}>"
             )
             return result
 
         elif test == 'lower':
             result = self.assert_and_go(
                 condition=current_value < expected_value,
-                message=f"Expected {prop} to be lower than {expected_value}, got {current_value}"
+                message=f"Expected <{prop}> to be lower than <{expected_value}>, got <{current_value}>"
             )
             return result
 
         elif test == 'exists':
             result = self.assert_and_go(
                 condition=current_value is not None,
-                message=f"Expected {prop} to exist, but it doesn't"
+                message=f"Expected <{prop}> to exist, got <{current_value}>"
             )
             return result
 
         elif test == 'not_exists':
             result = self.assert_and_go(
                 condition=current_value is None,
-                message=f"Expected {prop} to not exist, but it does"
+                message=f"Expected <{prop}> to not exist, got <{current_value}>"
             )
             return result
 
         elif test == 'type':
             result = self.assert_and_go(
                 condition=type(current_value) == expected_value,
-                message=f"Expected {prop} to be of type {expected_value}, got {type(current_value)}"
+                message=f"Expected <{prop}> to be of type <{expected_value}>, got {type(current_value)}"
             )
             return result
 
         elif test == 'length':
             result = self.assert_and_go(
                 condition=len(current_value) == expected_value,
-                message=f"Expected {prop} to have length {expected_value}, got {len(current_value)}"
+                message=f"Expected <{prop}> to have length <{expected_value}>, got {len(current_value)}"
             )
             return result
 
         elif test == 'empty':
             result = self.assert_and_go(
                 condition=len(current_value) == 0,
-                message=f"Expected {prop} to be empty, but it isn't"
+                message=f"Expected <{prop}> to be empty, got <{current_value}>"
             )
             return result
 
         elif test == 'not_empty':
             result = self.assert_and_go(
                 condition=len(current_value) > 0,
-                message=f"Expected {prop} to not be empty, but it is"
+                message=f"Expected <{prop}> to not be empty, got <{current_value}>"
             )
             return result
 
         elif test == "in_range":
             window = sorted(expected_value.split(":"))
 
+            try:
+                condition = int(window[0]) <= int(current_value) <= int(window[1])
+            except ValueError:
+                condition = False
+
             result = self.assert_and_go(
-                condition=int(window[0]) <= int(current_value) <= int(window[1]),
-                message=f"Expected {prop} to be in range {expected_value}, got {current_value}"
+                condition=condition,
+                message=f"Expected <{prop}> to be in range <{expected_value}>, got <{current_value}>"
             )
             return result
 
         elif test == "matches":
             result = self.assert_and_go(
-                condition=re.fullmatch(expected_value, current_value),
-                message=f"Expected {prop} to match {expected_value}, got {current_value}"
+                condition=re.fullmatch(expected_value, str(current_value)),
+                message=f"Expected <{prop}> to match <{expected_value}>, got <{current_value}>"
             )
             return result
 
