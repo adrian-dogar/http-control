@@ -63,8 +63,15 @@ class Agent():
             f"Preparing and asserting <{prop}>, for <{test}> test, with expected value <{expected_value}> and current value <{current_value}>")
 
         if test == 'contains':
+            if type(expected_value) == dict:
+                condition = all(item in current_value.items() for item in expected_value.items())
+            elif type(expected_value) == list:
+                condition = all(item in current_value for item in expected_value)
+            else:
+                condition = expected_value in current_value
+
             result = self.assert_and_go(
-                condition=expected_value in current_value,
+                condition=condition,
                 message=f"Expected <{prop}> to contain <{expected_value}>, got <{current_value}>"
             )
             return result
@@ -90,7 +97,7 @@ class Agent():
         elif test == 'equals':
             if type(expected_value) == dict:
                 norm_expected = re.sub(r'[\n\r\t\s]+', '', json.dumps(expected_value, sort_keys=True))
-                norm_current = re.sub(r'[\n\r\t\s]+', '', json.loads(json.dumps(current_value, sort_keys=True)))
+                norm_current = re.sub(r'[\n\r\t\s]+', '', json.dumps(current_value, sort_keys=True))
                 condition = norm_expected == norm_current
                 message = f"Expected <{prop}> to be {norm_expected}, got {norm_current}"
             else:

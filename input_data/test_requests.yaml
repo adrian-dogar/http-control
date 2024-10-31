@@ -1,4 +1,7 @@
 defaults:
+  bypass_proxy:
+    - "localhost"
+    - "127.0.0.1"
   oauth2:
     my_provider:
       client_id: ${my_provider_client_id}
@@ -14,38 +17,37 @@ defaults:
     method: "GET"
     headers:
       Accept: "application/json"
-  expect:
+  expect: # TODO: not implemented yet
     status_code: 200
     headers:
       Content-Type: "application/json"
     error: false
 
 requests:
-#  - name: "Get User Data"
-#    summary: "Get user data from the API"
-#    tags: "user"
-#    invoke:
-#      url: "https://dymkj.wiremockapi.cloud/json/1"
-#      method: "GET"
-#      headers:
-#        Authorization: "Bearer $token"
-#    expected:
-#      status_code:
-#        - equals: 200
-#        - in_range: 200:299
-#      headers:
-#        - includes:
-#            Content-Type: "application/json"
-#      body:
-#        - equals:
-#            id: 1
-#            value: "things"
-##        - contains:
-##          - "id"
-##          - "value"
-##        error: false
+  - name: "Complete url"
+    summary: "Get user data from the API"
+    tags: "user"
+    invoke:
+      url: "https://dymkj.wiremockapi.cloud/json/1"
+      method: "GET"
+      headers:
+        Authorization: "Bearer $token"
+    expect:
+      status_code:
+        - equals: 200
+        - in_range: 200:299
+      headers:
+        - includes:
+            Content-Type: "application/json;charset=utf-8"
+      body:
+        - exists: true
+        - contains: ["id", "value"]
+        - equals:
+            id: 1
+            value: "things"
+#        error: false
 
-  - name: "Create New Post"
+  - name: "URL by template, some with multiple values"
     summary: ""
     tags: ""
     invoke:
@@ -72,27 +74,21 @@ requests:
         - includes:
             Content-Type: "application/json"
 
-#  - name: "Create New Post"
-#    invoke:
-#      url_values:
-#        locale:
-#          - "us"
-#          - "uk"
-#        project:
-#          - "coffeeshop"
-#          - "0v7jg"
-#        env:
-#          - "-stage"
-#          - ""
-#        path: "/grind"
-#      method: "GET"
-#      payload: {}
-#      headers:
-#        Authorization: "Bearer $token"
-#    expected_response:
-#      status_code: 201
-#      body_contains:
-#        - "id"
-#        - "title"
-#        - "content"
-#      error: false
+  - name: "Assert a fail"
+    invoke:
+      url_values:
+        locale:
+          - "uk"
+        project:
+          - "0v7jg"
+        env:
+          - "-stage"
+        path: "/grind"
+      method: "GET"
+      payload: {}
+      headers:
+        Authorization: "$bearer"
+    expect:
+      # TODO, assert a failure, not a good response
+      error:
+        - includes: "Failed to resolve 'uk-0v7jg-stage.wiremockapi.cloud'"

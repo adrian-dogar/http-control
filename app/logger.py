@@ -1,5 +1,6 @@
 import logging
 import sys
+import globals
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {
@@ -32,7 +33,9 @@ def setup_logger(name='project_logger', level=logging.INFO):
         stdout_handler.setLevel(level)
 
         # Create formatter
-        formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = ColoredFormatter('%(asctime)s - %(levelname)s - %(message)s')
+        if globals.verbose:
+            formatter = ColoredFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         stdout_handler.setFormatter(formatter)
 
         # Add handler to logger

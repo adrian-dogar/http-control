@@ -3,16 +3,11 @@ import random
 import string
 from request import Request
 from urllib.parse import urlparse
+import globals
 
 from logger import setup_logger
 logger = setup_logger(__name__)
 
-def rand(length=7):
-    letters = string.ascii_letters + string.digits
-    return ''.join(random.choice(letters) for _ in range(length))
-
-def slugify(text):
-    return text.lower().replace(' ', '-')
 
 # Singleton class
 class Collection:
@@ -27,6 +22,7 @@ class Collection:
         logger.info("Initializing Collection")
         self.id_counter = 1
         self.requests = {}
+        # TODO: implement tags, groups and suites and execute only the test requests that match
         self.tags = []
         self.groups = []
         self.suites = []
@@ -78,13 +74,14 @@ class Collection:
         requests_list = data.get('requests', [])
 
         for item in requests_list:
-            logger.info(f"Instantiating the requests for [{item.get('name')}] suite - ({self.id_counter})")
+            logger.debug(f"Instantiating the requests for [{item.get('name')}] suite - ({self.id_counter})")
             invoke = item.get('invoke', {})
+
             attributes = {
                 'method': invoke.get('method', defaults.get('method', 'GET')),
                 'truststore': invoke.get('truststore', defaults.get('truststore')),
                 'keystore': invoke.get('keystore', defaults.get('keystore', [])),
-                'headers': {**defaults.get('headers', {}), **invoke.get('headers', {})},
+                'headers': {k.lower(): v for k, v in {**defaults.get('headers', {}), **invoke.get('headers', {})}.items()},
                 'payload': invoke.get('payload', defaults.get('payload', None)),
                 'name': item.get('name', ''),
                 'summary': item.get('summary', ''),
@@ -95,62 +92,81 @@ class Collection:
                 'timeout': item.get('timeout', defaults.get('timeout', 10)),
             }
 
-            if 'url' in invoke:
-                attributes['url'] = invoke['url']
+            # TODO: improve the usage with multiple ID providers, the token manager lib and the config yaml contents
+            if 'authorization' in attributes['headers'] and attributes['headers'].get('authorization') == '$bearer':
+                attributes['headers']['authorization'] = f"Bearer {globals.token}"
+
+            urls = url_combos(invoke, defaults)
+            for url in urls:
+                attributes['url'] = url
                 request = Request(attributes)
                 self.append(request)
 
-            elif 'url' in defaults:
-                attributes['url'] = defaults['url']
-                request = Request(attributes)
-                self.append(request)
+                hostname = urlparse(attributes['url']).hostname
+                bypass_proxy = False
+                for substring in data.get('defaults', {}).get('bypass_proxy', {}):
+                    if f"{substring}" in hostname:
+                        bypass_proxy = True
+                        break
+                if bypass_proxy:
+                    attributes['proxy'] = {}
+                else:
+                    attributes['proxy'] = invoke.get('proxy', defaults.get('proxy', {}))
 
-            elif 'url_values' in invoke and 'url_template' in defaults:
-                processed_dict = {k: [v] if isinstance(v, str) else v for k, v in invoke['url_values'].items()}
-                keys = processed_dict.keys()
-                value_lists = processed_dict.values()
-                combinations = list(itertools.product(*value_lists))
-                all_options = [dict(zip(keys, combo)) for combo in combinations]
-                logger.debug(f"All options are: {all_options}")
-
-                for option in all_options:
-                    logger.debug(f"Creating new request for the <{attributes['suite']}> suite - ({self.id_counter})")
-                    attributes['url'] = defaults['url_template'].format(**option)
-                    logger.debug(f"Attributes for current option are: {attributes}")
-                    request = Request(attributes)
-                    self.append(request)
-
-            else:
-                logger.error("No URL provided for request")
-                return []
-
-            hostname = urlparse(attributes['url']).hostname
-            attributes['bypass_proxy'] = False
-            for substring in data.get('defaults', {}).get('bypass_proxy', {}):
-                if f"{substring}" in hostname:
-                    attributes['bypass_proxy'] = True
-                    break
-            if attributes['bypass_proxy']:
-                attributes['proxy'] = invoke.get('proxy', defaults.get('proxy', {}))
-
+    # TODO: use one log line for all the info
+    # TODO: return json if not run as script
     def build_report(self):
         logger.info("Building report...")
+        lines = []
 
         total_requests = len(self.requests)
-        logger.info(f"    > Total requests: {total_requests}")
+        lines.append(f"  > Total requests: {total_requests}")
 
         total_assertions = sum([len(request.expected) for request in self.requests.values()])
-        logger.info(f"    > Total assertions: {total_assertions}")
+        lines.append(f"  > Total assertions: {total_assertions}")
 
         total_failed_assertions = sum(len([assertion for assertion in request.assertions if assertion['status'] == False]) for request in self.requests.values())
-        logger.info(f"    > Total failed assertions: {total_failed_assertions}")
+        lines.append(f"  > Total failed assertions: {total_failed_assertions}")
 
         total_passed_assertions = sum(len([assertion for assertion in request.assertions if assertion['status'] == True]) for request in self.requests.values())
-        logger.info(f"    > Total passed assertions: {total_passed_assertions}")
+        lines.append(f"  > Total passed assertions: {total_passed_assertions}")
 
         requests_for_review = {request.id: request.name for request in self.requests.values() if len([assertion for assertion in request.assertions if assertion['status'] == False]) > 0}
-        logger.info(f"    > Requests with failed assertions:")
+        lines.append(f"  > Requests with failed assertions:")
         for request_id, value in requests_for_review.items():
-            logger.info(f"        >> ({request_id}): {value}")
+            lines.append(f"    >> ({request_id}): {value}")
 
-        logger.info("Report built successfully!")
+        logger.info("\n" + "\n".join(lines))
+
+def rand(length=7):
+    letters = string.ascii_letters + string.digits
+    return ''.join(random.choice(letters) for _ in range(length))
+
+def slugify(text):
+    return text.lower().replace(' ', '-')
+
+def url_combos(invoke, defaults):
+    if 'url' in invoke:
+        return [invoke['url']]
+
+    elif 'url' in defaults:
+        return [defaults['url']]
+
+    elif 'url_values' in invoke and 'url_template' in defaults:
+        processed_dict = {k: [v] if isinstance(v, str) else v for k, v in invoke['url_values'].items()}
+        keys = processed_dict.keys()
+        value_lists = processed_dict.values()
+        combinations = list(itertools.product(*value_lists))
+        all_options = [dict(zip(keys, combo)) for combo in combinations]
+        logger.debug(f"All options are: {all_options}")
+
+        options = []
+        for option in all_options:
+            options.append(defaults['url_template'].format(**option))
+
+        return options
+
+    else:
+        logger.error("No URL provided for request")
+        raise ValueError("No URL provided for request")
+

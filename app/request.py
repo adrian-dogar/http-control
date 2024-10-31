@@ -33,22 +33,16 @@ class Request:
         self.timeout = 10
         self.assertions = []
 
-        # Fpr all items in the attributes dictionary, set the value of the item to the value of the key, except for the url, and payload
         for key, value in attributes.items():
             if key not in ['url', 'payload', 'keystore', 'truststore', 'proxies']:
                 setattr(self, key, value)
 
-        # self.method = attributes.get('method', 'GET')
-        # self.headers = attributes.get('headers', {})
+        self.method = attributes.get('method', 'GET')
+        self.headers = attributes.get('headers', {})
         self.url = self.replace_variables(attributes['url'], variables)
         self.verify = attributes.get('truststore', False)
         self.cert = attributes.get('keystore', [])
         self.proxies = attributes.get('proxy', None)
-
-        # TODO: improve the usage with multiple ID providers, the token manager lib and the config yaml contents
-        if ('authorization' in {k.lower() for k in attributes.keys()}
-                and self.headers.get('Authorization').lower() == '$bearer'):
-            self.headers['Authorization'] = f"Bearer {globals.token}"
 
         # Either "json" or "data" can be used, but not both
         if 'payload' in attributes and attributes['payload']:

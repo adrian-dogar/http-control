@@ -18,11 +18,10 @@ def main():
     globals.verbose = args.verbose
 
     # Load configuration files
-    collection_file = Config(args.collection).items()
+    collection_file = Config(args.collection, ".env").items()
     logger.debug(f"Configuration file loaded: {args.collection}")
-    # logger.debug(f"Configuration: {json.dumps(collection_file, indent=2)}")
 
-    # TODO: must be improved.
+    # TODO: must be improved (multiple providers)
     provider = collection_file.get('defaults').get('oauth2').get('my_provider')
     ltm = LightTokenManager(provider['token_url'], provider['client_id'], provider['client_secret'], provider['scope'], provider['grant_type'])
     globals.token = ltm.get_token()
@@ -41,6 +40,7 @@ def main():
     logger.debug(f"Collection: {collection.requests}")
 
     for counter, (index, request) in enumerate(collection.requests.items()):
+        logger.info(f"New request!\n    Processing {index}/{len(collection.requests)} - {request.name}")
         request.invoke()
         logger.debug(f"Response message: {request.response['body']}")
 
@@ -51,5 +51,6 @@ def main():
 
     collection.build_report()
 
+# TODO: make it run as script but also as a module
 if __name__ == "__main__":
     main()
