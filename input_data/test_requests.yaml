@@ -4,11 +4,19 @@ defaults:
     - "127.0.0.1"
   oauth2:
     my_provider:
+      enabled: true
       client_id: ${my_provider_client_id}
       client_secret: ${my_provider_client_secret}
       token_url: "https://fake-idp.wiremockapi.cloud/token"
       grant_type: "client_credentials"
       scope: ${my_provider_scope}
+    my_other_provider:
+      enabled: true
+      client_id: ${my_other_provider_client_id}
+      client_secret: ${my_other_provider_client_secret}
+      token_url: "https://fake-idp.wiremockapi.cloud/token_2"
+      grant_type: "client_credentials"
+      scope: ${my_other_provider_scope}
   request:
     truststore: false
     keystore: []
@@ -17,6 +25,7 @@ defaults:
     method: "GET"
     headers:
       Accept: "application/json"
+      Authorization: "Bearer {{my_provider}}"
   expect: # TODO: not implemented yet
     status_code: 200
     headers:
@@ -30,8 +39,7 @@ requests:
     invoke:
       url: "https://dymkj.wiremockapi.cloud/json/1"
       method: "GET"
-      headers:
-        Authorization: "Bearer $token"
+      headers: {}
     expect:
       status_code:
         - equals: 200
@@ -45,6 +53,8 @@ requests:
         - equals:
             id: 1
             value: "things"
+            employee: A
+            token: Bearer token_a
 #        error: false
 
   - name: "URL by template, some with multiple values"
@@ -64,12 +74,18 @@ requests:
       method: "GET"
       payload: None
       headers:
-        Authorization: "$bearer"
+        Authorization: "Bearer {{my_other_provider}}"
     expect:
       status_code:
         - equals: 200
       body:
         - exists: true
+        - equals:
+            qty: 2
+            token: Bearer token_b
+            status: grinded
+            size: 1
+            employee: B
       headers:
         - includes:
             Content-Type: "application/json"
@@ -87,7 +103,7 @@ requests:
       method: "GET"
       payload: {}
       headers:
-        Authorization: "$bearer"
+        Authorization: "Bearer {{my_other_provider}}"
     expect:
       # TODO, assert a failure, not a good response
       error:

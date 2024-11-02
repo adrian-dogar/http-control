@@ -21,10 +21,20 @@ def main():
     collection_file = Config(args.collection, ".env").items()
     logger.debug(f"Configuration file loaded: {args.collection}")
 
-    # TODO: must be improved (multiple providers)
-    provider = collection_file.get('defaults').get('oauth2').get('my_provider')
-    ltm = LightTokenManager(provider['token_url'], provider['client_id'], provider['client_secret'], provider['scope'], provider['grant_type'])
-    globals.token = ltm.get_token()
+    oauth2_providers = collection_file.get('defaults').get('oauth2')
+    for provider, provider_details in oauth2_providers.items():
+        if provider_details.get('enabled'):
+            logger.debug(f"Fetching token from provider: {provider}")
+            ltm = LightTokenManager(
+                provider_details['token_url'],
+                provider_details['client_id'],
+                provider_details['client_secret'],
+                provider_details['scope'],
+                provider_details['grant_type'],
+            )
+            # create new entry in globals, using the provider name as key
+            globals.tokens[provider] = ltm.get_token()
+            print(f"token: {globals.tokens}")
 
     # Run the control operator
     logger.info("Setting up the agent")

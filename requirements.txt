@@ -4,7 +4,7 @@ charset-normalizer==3.4.0
 exceptiongroup==1.2.2
 idna==3.10
 iniconfig==2.0.0
-light-token-manager @ git+https://github.com/adrian-dogar/light-token-manager@57c0c9690e3e1528573dd5455b7eaf10c2cffce4
+light-token-manager @ git+https://github.com/adrian-dogar/light-token-manager@464eae66bed367d2eb47dbe2375e640f50913513
 packaging==24.1
 pluggy==1.5.0
 pytest==8.3.3

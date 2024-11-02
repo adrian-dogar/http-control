@@ -20,14 +20,9 @@ class Request:
         self.suite = None
         self.tags = []
         self.groups = []
-        self.url = ''
         self.method = ''
         self.data = None  # TODO if dict, dump to json
         self.json = None  # TODO if dict, dump to json
-        self.headers = {}
-        self.verify = {}
-        self.cert = []
-        self.proxies = {}
         self.expected = {}
         self.response = {}
         self.timeout = 10

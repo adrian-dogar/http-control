@@ -1,5 +1,6 @@
 import itertools
 import random
+import re
 import string
 from request import Request
 from urllib.parse import urlparse
@@ -92,9 +93,19 @@ class Collection:
                 'timeout': item.get('timeout', defaults.get('timeout', 10)),
             }
 
-            # TODO: improve the usage with multiple ID providers, the token manager lib and the config yaml contents
-            if 'authorization' in attributes['headers'] and attributes['headers'].get('authorization') == '$bearer':
-                attributes['headers']['authorization'] = f"Bearer {globals.token}"
+            # TODO: seems to work. test it using Wire Mock. specific responses for both token request and resource request (with token)
+
+            pattern = re.compile(r'^Bearer \{\{(\w+)}}$')
+
+            if 'authorization' in attributes['headers']:
+                match = re.search(pattern, attributes['headers']['authorization'])
+                if match:
+                    token = globals.tokens.get(match.group(1), None)
+                    if token:
+                        attributes['headers']['authorization'] = f"Bearer {token}"
+                    else:
+                        logger.error(f"Token not found for provider: {match.group(1)}")
+                        raise ValueError(f"Token not found for provider: {match.group(1)}")
 
             urls = url_combos(invoke, defaults)
             for url in urls:
