@@ -1,7 +1,6 @@
 import logging
 import sys
 import globals
-
 class ColoredFormatter(logging.Formatter):
     COLORS = {
         'DEBUG': '\033[94m',    # Blue
@@ -22,7 +21,8 @@ class ColoredFormatter(logging.Formatter):
         log_message = super().format(record)
         return f"{color}{log_message}{self.COLORS['RESET']}"
 
-def setup_logger(name='project_logger', level=logging.INFO):
+def setup_logger(name='project_logger', level=None):
+    level = logging.DEBUG if globals.verbose else logging.INFO
     logger = logging.getLogger(name)
     logger.setLevel(level)
 

@@ -1,21 +1,23 @@
 import argparse
 from configobj import Config
-from agent import Agent
-from collection import Collection
-from logger import setup_logger
 from light_token_manager import LightTokenManager
 import globals
 
 def main():
-    logger = setup_logger(__name__)
-
     # Read arguments
     parser = argparse.ArgumentParser(description="Run the application")
     parser.add_argument("collection", nargs='?', help="Configuration file")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase output verbosity")
+    parser.add_argument("-t", "--tags", nargs='+', help="Filter requests by tags")
+    parser.add_argument("-s", "--suites", nargs='+', help="Filter requests by suites")
     args = parser.parse_args()
 
     globals.verbose = args.verbose
+
+    from agent import Agent
+    from collection import Collection
+    from logger import setup_logger
+    logger = setup_logger(__name__)
 
     # Load configuration files
     collection_file = Config(args.collection, ".env").items()
@@ -49,7 +51,15 @@ def main():
 
     logger.debug(f"Collection: {collection.requests}")
 
-    for counter, (index, request) in enumerate(collection.requests.items()):
+    if args.tags or args.suites:
+        logger.info("Filtering requests")
+        collection.working_set = collection.filter_requests(args.tags, args.suites)
+
+    logger.debug(f"Filtered collection length: {len(collection.working_set)}")
+
+    # for counter, (index, request) in enumerate(collection.requests.items()):
+    for index in collection.working_set:
+        request = collection.requests[index]
         logger.info(f"New request!\n    Processing {index}/{len(collection.requests)} - {request.name}")
         request.invoke()
         logger.debug(f"Response message: {request.response['body']}")

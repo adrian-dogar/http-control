@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, mock_open, MagicMock
-from app.collection import Collection, load_config, configure_collection, setup_logging
+from app.collection import Collection
 
 class TestCollection(unittest.TestCase):
 

@@ -2,7 +2,6 @@ import requests
 import json
 from urllib.parse import urlparse, parse_qs, urlencode
 import urllib3
-import globals
 from logger import setup_logger
 logger = setup_logger(__name__)
 
@@ -21,8 +20,8 @@ class Request:
         self.tags = []
         self.groups = []
         self.method = ''
-        self.data = None  # TODO if dict, dump to json
-        self.json = None  # TODO if dict, dump to json
+        self.data = None
+        self.json = None
         self.expected = {}
         self.response = {}
         self.timeout = 10

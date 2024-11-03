@@ -23,47 +23,45 @@ class Collection:
         logger.info("Initializing Collection")
         self.id_counter = 1
         self.requests = {}
-        # TODO: implement tags, groups and suites and execute only the test requests that match
         self.tags = []
-        self.groups = []
         self.suites = []
 
         if data:
             self.parse_requests_in(data)
 
+        self.working_set = list(self.requests.keys())
+
     def get_items(self):
         return self.requests
 
-    def append(self, request: Request, tags=None, groups=None, suite=None):
+    def append(self, request: Request, tags=None, suite=None):
         if suite:
             request.suite = suite
             self.suites.append(suite)
         if tags:
             request.tags = tags
             self.tags.extend(tags)
-        if groups:
-            request.groups = groups
-            self.groups.extend(groups)
 
         # Use the id_counter as the unique key
         request.id = self.id_counter
         self.requests[self.id_counter] = request
         self.id_counter += 1  # Increment the counter
 
-    def get_atomized_collection(self, tags=None, groups=None, suites=None):
+    def filter_requests(self, tags=None, suites=None):
         """
-        TODO underdeveloped
-        Return a list of requests that match the tags, groups and suites
+        Filter the requests list by tags and suites
         :param tags:
-        :param groups:
         :param suites:
         :return:
         """
-        atomized_collection = []
+        filtered_requests = {}
         for request in self.requests.values():
-            if self._is_request_included(request):
-                atomized_collection.append(request)
-        return atomized_collection
+            if tags and not set(tags).issubset(set(request.tags)):
+                continue
+            if suites and request.suite not in suites:
+                continue
+            filtered_requests[request.id] = request
+        return filtered_requests
 
     def parse_requests_in(self, data):
         """
@@ -86,14 +84,11 @@ class Collection:
                 'payload': invoke.get('payload', defaults.get('payload', None)),
                 'name': item.get('name', ''),
                 'summary': item.get('summary', ''),
-                'tags': item.get('tags', []),
-                'groups': item.get('groups', []),
                 'suite': slugify(item.get('name', rand(7))),
                 'expected' : item.get('expect', {}),
                 'timeout': item.get('timeout', defaults.get('timeout', 10)),
+                'tags': [item.get('tags')] if isinstance(item.get('tags'), str) else item.get('tags', []),
             }
-
-            # TODO: seems to work. test it using Wire Mock. specific responses for both token request and resource request (with token)
 
             pattern = re.compile(r'^Bearer \{\{(\w+)}}$')
 
@@ -124,7 +119,12 @@ class Collection:
                 else:
                     attributes['proxy'] = invoke.get('proxy', defaults.get('proxy', {}))
 
-    # TODO: use one log line for all the info
+        list_of_unique_tags_in_all_requests = list(
+            set(itertools.chain.from_iterable(request.tags for request in self.requests.values() if request.tags)))
+        list_of_unique_tags_in_all_requests = [tag for tag in list_of_unique_tags_in_all_requests if tag]
+        logger.info(f"Unique tags in all requests: {list_of_unique_tags_in_all_requests}")
+
+
     # TODO: return json if not run as script
     def build_report(self):
         logger.info("Building report...")
@@ -180,4 +180,3 @@ def url_combos(invoke, defaults):
     else:
         logger.error("No URL provided for request")
         raise ValueError("No URL provided for request")
-

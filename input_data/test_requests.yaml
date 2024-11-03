@@ -35,7 +35,8 @@ defaults:
 requests:
   - name: "Complete url"
     summary: "Get user data from the API"
-    tags: "user"
+    tags:
+      - user
     invoke:
       url: "https://dymkj.wiremockapi.cloud/json/1"
       method: "GET"
